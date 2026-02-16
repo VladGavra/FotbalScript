@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configuration
-LOGIN_URL = "https://sportinclujnapoca.ro/login"
+LOGIN_URL = "https://aibdnbgbsrqhefelcgtb.supabase.co/auth/v1/token?grant_type=password"
 GET_AVAILABLE_SLOTS = "https://www.calendis.ro/api/get_available_slots?service_id={service_id}&location_id={location_id}&date={date}"
 APPOINTMENT_PRE_RESERVATION_URL = "https://www.calendis.ro/api/appointment/"
 APPOINTMENT_RESERVATION_URL = "https://www.calendis.ro/api/appointment/{}"
