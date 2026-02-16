@@ -1,0 +1,40 @@
+name: Weekly Script
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Allows manual triggering
+    inputs:
+      CUSTOM_TIME_SLOT:
+        description: 'Time slot for the script to run against, format YYYY-MM-DD HH:MM:SS'
+        required: false
+        default: ''
+      FOTBAL_USERNAME:
+        description: 'Optional username, if not provided, the script will use the one from the secrets'
+        required: false
+        default: ''
+      FOTBAL_PASSWORD:
+        description: 'Optional password, if not provided, the script will use the one from the secrets'
+        required: false
+        default: ''
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.x
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run script
+        env:
+          FOTBAL_USERNAME: ${{ github.event.inputs.FOTBAL_USERNAME || secrets.FOTBAL_USERNAME }}
+          FOTBAL_PASSWORD: ${{ github.event.inputs.FOTBAL_PASSWORD || secrets.FOTBAL_PASSWORD }}
+          CUSTOM_TIME_SLOT: ${{ github.event.inputs.CUSTOM_TIME_SLOT }}
+
+        run: python fotbal.py
