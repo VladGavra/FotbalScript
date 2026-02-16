@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configuration
-LOGIN_URL = "https://www.calendis.ro/api/login"
+LOGIN_URL = "https://sportinclujnapoca.ro/login"
 GET_AVAILABLE_SLOTS = "https://www.calendis.ro/api/get_available_slots?service_id={service_id}&location_id={location_id}&date={date}"
 APPOINTMENT_PRE_RESERVATION_URL = "https://www.calendis.ro/api/appointment/"
 APPOINTMENT_RESERVATION_URL = "https://www.calendis.ro/api/appointment/{}"
@@ -46,7 +46,7 @@ def do_login():
     """
     Logs in to the API and returns a session with the client's cookie.
     """
-    payload = {"email": USERNAME, "password": PASSWORD, "remember": True}
+    payload = {"email": USERNAME, "password": PASSWORD, "gotrue_meta_security": {}}
 
     session = requests.Session()
 
