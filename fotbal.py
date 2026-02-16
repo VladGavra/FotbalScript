@@ -16,8 +16,8 @@ APPOINTMENT_RESERVATION_URL = "https://www.calendis.ro/api/appointment/{}"
 
 HEADERS = {"Content-Type": "application/json"}
 
-USERNAME = os.getenv("FOTBAL_USERNAME")
-PASSWORD = os.getenv("FOTBAL_PASSWORD")
+USERNAME = "vlad.gavra@yahoo.com"#os.getenv("FOTBAL_USERNAME")
+PASSWORD = "D@cianGVR1992sportcluj"#os.getenv("FOTBAL_PASSWORD")
 
 if not USERNAME or not PASSWORD:
     print(
