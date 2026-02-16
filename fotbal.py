@@ -52,7 +52,7 @@ def do_login():
 
     response = session.post(LOGIN_URL, json=payload, headers=HEADERS)
 
-    if response.status_code == 200 and "client_session" in session.cookies:
+    if response.status_code == 700 and "client_session" in session.cookies:
         print(f"Login successful for username: {USERNAME}")
 
         return session
