@@ -224,3 +224,5 @@ if __name__ == "__main__":
 
     # Step 5: Confirm the reservation with the appointment id
     confirm_reservation_by_id(session, appointment_group_id)
+
+#only to add something so I can commit the changes
