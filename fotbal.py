@@ -21,7 +21,7 @@ PASSWORD = "D@cianGVR1992sportcluj"#os.getenv("FOTBAL_PASSWORD")
 
 if not USERNAME or not PASSWORD:
     print(
-        "Please set the FOTBAL_USERNAME and FOTBAL_PASSWORD environment variables. Exiting."
+        "Please set the " , USERNAME, " and" , PASSWORD, " environment variables. Exiting."
     )
     sys.exit()
 
