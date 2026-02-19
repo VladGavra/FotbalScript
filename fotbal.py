@@ -14,10 +14,17 @@ GET_AVAILABLE_SLOTS = "https://www.calendis.ro/api/get_available_slots?service_i
 APPOINTMENT_PRE_RESERVATION_URL = "https://www.calendis.ro/api/appointment/"
 APPOINTMENT_RESERVATION_URL = "https://www.calendis.ro/api/appointment/{}"
 
-HEADERS = {"Content-Type": "application/json"}
+HEADERS = {
+    "accept": "*/*",
+    "apikey": "sb_publishable_jUOeK9gZS9vffHcOslwd9Q_NV8HvFTH",
+    "authorization": "Bearer sb_publishable_jUOeK9gZS9vffHcOslwd9Q_NV8HvFTH",
+    "content-type": "application/json;charset=UTF-8",
+    "x-client-info": "supabase-ssr/0.7.0 createBrowserClient",
+    "x-supabase-api-version": "2024-01-01",
+}
 
-USERNAME = "vlad.gavra@yahoo.com"#os.getenv("FOTBAL_USERNAME")
-PASSWORD = "D@cianGVR1992sportcluj"#os.getenv("FOTBAL_PASSWORD")
+USERNAME = os.getenv("FOTBAL_USERNAME")
+PASSWORD = os.getenv("FOTBAL_PASSWORD")
 
 if not USERNAME or not PASSWORD:
     print(
@@ -46,20 +53,43 @@ def do_login():
     """
     Logs in to the API and returns a session with the client's cookie.
     """
-    payload = {"email": USERNAME, "password": PASSWORD, "gotrue_meta_security": {}}
+     payload = {
+        "email": USERNAME,
+        "password": PASSWORD,
+        "gotrue_meta_security": {},
+    }
 
     session = requests.Session()
 
-    response = session.post(LOGIN_URL, json=payload, headers=HEADERS)
+    response = session.post(
+        LOGIN_URL,
+        json=payload,
+        headers=HEADERS,
+        timeout=30,
+    )
 
-    if response.status_code == 700 and "client_session" in session.cookies:
-        print(f"Login successful for username: {USERNAME}")
+    if response.status_code != 200:
+        print(f"❌ Login failed for username: {USERNAME}")
+        print(response.text)
+        sys.exit(1)
 
-        return session
-    else:
-        print(f"Login failed for username: {USERNAME}. Exiting.")
+    data = response.json()
+    access_token = data.get("access_token")
 
-        sys.exit()
+    if not access_token:
+        print("❌ Login failed — no access token received")
+        sys.exit(1)
+
+    # 🔥 foarte important: atașăm tokenul la sesiune
+    session.headers.update({
+        "Authorization": f"Bearer {access_token}",
+        "apikey": HEADERS["apikey"],
+    })
+
+    print(f"✅ Login successful for username: {USERNAME}")
+
+    return session
+
 
 
 def get_time_slot(session, epoch_timestamp):
