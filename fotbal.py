@@ -50,9 +50,9 @@ SLOT_QUERY_TIME_DELAY_SEC = 5  # 5 seconds
 
 
 def do_login():
-    """
-    Logs in to the API and returns a session with the client's cookie.
-    """
+  #  """
+ #   Logs in to the API and returns a session with the client's cookie.
+#    """
      payload = {"email": USERNAME, "password": PASSWORD, "gotrue_meta_security": {}}
 
     session = requests.Session()
