@@ -53,11 +53,7 @@ def do_login():
     """
     Logs in to the API and returns a session with the client's cookie.
     """
-     payload = {
-        "email": USERNAME,
-        "password": PASSWORD,
-        "gotrue_meta_security": {},
-    }
+     payload = {"email": USERNAME, "password": PASSWORD, "gotrue_meta_security": {}}
 
     session = requests.Session()
 
