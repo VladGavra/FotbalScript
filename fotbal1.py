@@ -98,17 +98,17 @@ def login(session):
     "token_type": "bearer",
     "expires_in": data.get("expires_in", 3600),
     "user": data["user"],
-}
+    }
 
-encoded = base64.b64encode(
-    json.dumps(cookie_payload, separators=(",", ":")).encode()
-).decode()
+    encoded = base64.b64encode(
+        json.dumps(cookie_payload, separators=(",", ":")).encode()
+    ).decode()
 
-session.cookies.set(
-    "sb-aibdnbgbsrqhefelcgtb-auth-token.0",
-    f"base64-{encoded}",
-    domain="sportinclujnapoca.ro",
-)
+    session.cookies.set(
+        "sb-aibdnbgbsrqhefelcgtb-auth-token.0",
+        f"base64-{encoded}",
+        domain="sportinclujnapoca.ro",
+    )
 
     print("Login successful.")
     return user_id
@@ -222,6 +222,7 @@ if __name__ == "__main__":
     print("No slot found after retries.")
 
     sys.exit(1)
+
 
 
 
