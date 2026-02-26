@@ -162,7 +162,7 @@ if __name__ == "__main__":
         print("Missing credentials.")
         sys.exit(1)
 
-    ensure_correct_time_window()
+   # ensure_correct_time_window()
 
     session = requests.Session()
 
@@ -185,4 +185,5 @@ if __name__ == "__main__":
         sleep(RETRY_DELAY)
 
     print("No slot found after retries.")
+
     sys.exit(1)
