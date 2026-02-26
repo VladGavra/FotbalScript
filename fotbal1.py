@@ -1,4 +1,6 @@
 import os
+import base64
+import json
 import sys
 import requests
 from datetime import datetime, timedelta, time
@@ -238,5 +240,6 @@ if __name__ == "__main__":
 
     print("No slot found.")
     sys.exit(1)
+
 
 
