@@ -76,30 +76,33 @@ def login(session):
         sys.exit(1)
 
     data = r.json()
+
     access_token = data["access_token"]
+    refresh_token = data["refresh_token"]
     user_id = data["user"]["id"]
 
+    # 🔥 IMPORTANT — headers pentru requesturi ulterioare
     session.headers.update({
         "apikey": API_KEY,
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json"
     })
 
+    # 🔥 IMPORTANT — cookies Supabase
+    session.cookies.set(
+        "sb-aibdnbgbsrqhefelcgtb-auth-token",
+        access_token,
+        domain="sportinclujnapoca.ro",
+    )
+
+    session.cookies.set(
+        "sb-aibdnbgbsrqhefelcgtb-auth-token.1",
+        refresh_token,
+        domain="sportinclujnapoca.ro",
+    )
+
     print("Login successful.")
     return user_id
-refresh_token = data["refresh_token"]
-
-session.cookies.set(
-    "sb-aibdnbgbsrqhefelcgtb-auth-token",
-    access_token,
-    domain="sportinclujnapoca.ro",
-)
-
-session.cookies.set(
-    "sb-aibdnbgbsrqhefelcgtb-auth-token.1",
-    refresh_token,
-    domain="sportinclujnapoca.ro",
-)
 
 def get_target_date():
     today = datetime.now().date()
@@ -210,4 +213,5 @@ if __name__ == "__main__":
     print("No slot found after retries.")
 
     sys.exit(1)
+
 
