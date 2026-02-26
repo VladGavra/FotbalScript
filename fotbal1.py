@@ -1,5 +1,7 @@
 import os
 import sys
+import base64
+import json
 import requests
 from datetime import datetime, timedelta, time
 from time import sleep
@@ -81,6 +83,26 @@ def login(session):
     refresh_token = data["refresh_token"]
     user_id = data["user"]["id"]
 
+    # ✅ cookie Supabase EXACT ca în browser
+
+cookie_payload = {
+    "access_token": access_token,
+    "refresh_token": refresh_token,
+    "token_type": "bearer",
+    "expires_in": data.get("expires_in", 3600),
+    "user": data["user"],
+}
+
+encoded = base64.b64encode(
+    json.dumps(cookie_payload, separators=(",", ":")).encode()
+).decode()
+
+session.cookies.set(
+    "sb-aibdnbgbsrqhefelcgtb-auth-token.0",
+    f"base64-{encoded}",
+    domain="sportinclujnapoca.ro",
+)
+        
     # 🔥 IMPORTANT — headers pentru requesturi ulterioare
     session.headers.update({
         "apikey": API_KEY,
@@ -157,15 +179,15 @@ def create_reservation(session, user_id, slot):
         "groupId": None
     }
 
-    headers = {
-        "Authorization": session.headers.get("Authorization"),
-        "apikey": API_KEY,
-        "Origin": "https://sportinclujnapoca.ro",
-        "Referer": "https://sportinclujnapoca.ro/reservations/football?preferredSportComplex=gheorgheni-base",
-        "Content-Type": "application/json",
-        "Accept": "application/json, text/plain, */*",
-        "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36"
-    }
+headers = {
+    "Authorization": session.headers.get("Authorization"),
+    "apikey": API_KEY,
+    "Origin": "https://sportinclujnapoca.ro",
+    "Referer": "https://sportinclujnapoca.ro/",
+    "Accept": "application/json, text/plain, */*",
+    "Content-Type": "application/json",
+    "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36",
+}
 
     r = session.post(RESERVATION_URL, json=payload, headers=headers)
 
@@ -213,5 +235,6 @@ if __name__ == "__main__":
     print("No slot found after retries.")
 
     sys.exit(1)
+
 
 
