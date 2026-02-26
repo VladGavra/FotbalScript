@@ -36,4 +36,4 @@ jobs:
           FOTBAL_PASSWORD: ${{ github.event.inputs.FOTBAL_PASSWORD || secrets.FOTBAL_PASSWORD }}
           CUSTOM_TIME_SLOT: ${{ github.event.inputs.CUSTOM_TIME_SLOT }}
 
-        run: python fotbal.py
+        run: python fotbal1.py
