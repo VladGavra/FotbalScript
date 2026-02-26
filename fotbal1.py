@@ -87,7 +87,19 @@ def login(session):
 
     print("Login successful.")
     return user_id
+refresh_token = data["refresh_token"]
 
+session.cookies.set(
+    "sb-aibdnbgbsrqhefelcgtb-auth-token",
+    access_token,
+    domain="sportinclujnapoca.ro",
+)
+
+session.cookies.set(
+    "sb-aibdnbgbsrqhefelcgtb-auth-token.1",
+    refresh_token,
+    domain="sportinclujnapoca.ro",
+)
 
 def get_target_date():
     today = datetime.now().date()
@@ -142,14 +154,25 @@ def create_reservation(session, user_id, slot):
         "groupId": None
     }
 
-    r = session.post(RESERVATION_URL, json=payload)
+    headers = {
+        "Authorization": session.headers.get("Authorization"),
+        "apikey": API_KEY,
+        "Origin": "https://sportinclujnapoca.ro",
+        "Referer": "https://sportinclujnapoca.ro/reservations/football?preferredSportComplex=gheorgheni-base",
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/plain, */*",
+        "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36"
+    }
 
-    if r.status_code in (200, 201):
-        print("Reservation successful!")
-        print(r.json())
-    else:
-        print("Reservation failed:", r.text)
+    r = session.post(RESERVATION_URL, json=payload, headers=headers)
+
+    print("Reservation status:", r.status_code)
+    print(r.text)
+
+    if r.status_code not in (200, 201):
         sys.exit(1)
+
+    print("Reservation successful!")
 
 
 # ==============================
@@ -187,3 +210,4 @@ if __name__ == "__main__":
     print("No slot found after retries.")
 
     sys.exit(1)
+
