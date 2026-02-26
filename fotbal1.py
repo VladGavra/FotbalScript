@@ -78,12 +78,22 @@ def login(session):
     refresh_token = data["refresh_token"]
     user_id = data["user"]["id"]
 
-    # 🔥 CRITIC — setăm cookie exact ca browserul
-    cookie_value = f'base64-{{"access_token":"{access_token}","refresh_token":"{refresh_token}"}}'
+    # ✅ EXACT ca browserul
+    cookie_payload = {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "expires_in": 3600,
+        "user": data["user"],
+    }
+
+    encoded = base64.b64encode(
+        json.dumps(cookie_payload, separators=(",", ":")).encode()
+    ).decode()
 
     session.cookies.set(
         "sb-aibdnbgbsrqhefelcgtb-auth-token.0",
-        cookie_value,
+        f"base64-{encoded}",
         domain="sportinclujnapoca.ro",
     )
 
@@ -106,7 +116,7 @@ def get_app_token(session, access_token):
         "Referer": "https://sportinclujnapoca.ro/",
         "Accept": "application/json, text/plain, */*",
     }
-
+    
     r = session.get(APP_TOKEN_URL, headers=headers)
 
     if r.status_code != 200:
@@ -175,11 +185,11 @@ def create_reservation(session, user_id, slot, app_token):
     }
 
     headers = {
-        "Authorization": f"Bearer {app_token}",
-        "Origin": "https://sportinclujnapoca.ro",
-        "Referer": "https://sportinclujnapoca.ro/reservations/football",
-        "Content-Type": "application/json",
-        "Accept": "application/json, text/plain, */*",
+    "Authorization": f"Bearer {access_token}",  # JWT lung
+    "Origin": "https://sportinclujnapoca.ro",
+    "Referer": "https://sportinclujnapoca.ro/reservations/football?preferredSportComplex=gheorgheni-base",
+    "Content-Type": "application/json",
+    "Accept": "application/json, text/plain, */*",
     }
 
     r = session.post(RESERVATION_URL, json=payload, headers=headers)
@@ -228,4 +238,5 @@ if __name__ == "__main__":
 
     print("No slot found.")
     sys.exit(1)
+
 
