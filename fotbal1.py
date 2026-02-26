@@ -1,6 +1,4 @@
 import os
-import base64
-import json
 import sys
 import requests
 from datetime import datetime, timedelta, time
@@ -23,6 +21,7 @@ API_KEY = "sb_publishable_jUOeK9gZS9vffHcOslwd9Q_NV8HvFTH"
 USERNAME = os.getenv("FOTBAL_USERNAME")
 PASSWORD = os.getenv("FOTBAL_PASSWORD")
 
+# Gheorgheni Base Football
 SPORTS_COMPLEX_ID = "211fdc7a-166e-43c8-9c5a-75094878b63a"
 FACILITY_ID = "742f59e9-0bd9-427a-8982-9d6fc1b62b1a"
 
@@ -30,30 +29,30 @@ TARGET_HOUR = 12
 WEEKS_AHEAD = 2
 
 MAX_RETRIES = 60
-RETRY_DELAY = 5
+RETRY_DELAY = 5  # seconds
 
 
 # ==============================
-# TIME WINDOW
+# UTILS
 # ==============================
 
 def ensure_correct_time_window():
     now = datetime.now()
 
+    # 3 = Thursday
     if now.weekday() != 3:
         print("Not Thursday. Exiting.")
         sys.exit(0)
 
-    if not (time(20, 0) <= now.time() <= time(21, 30)):
-        print("Outside booking window. Exiting.")
+    start = time(20, 0)
+    end = time(21, 30)
+
+    if not (start <= now.time() <= end):
+        print("Outside allowed booking window (20:00–21:30). Exiting.")
         sys.exit(0)
 
-    print("Inside booking window.")
+    print("Inside booking window. Continuing...")
 
-
-# ==============================
-# LOGIN
-# ==============================
 
 def login(session):
     payload = {
@@ -71,42 +70,29 @@ def login(session):
     }
 
     r = session.post(LOGIN_URL, json=payload, headers=headers)
-    r.raise_for_status()
+
+    if r.status_code != 200:
+        print("Login failed:", r.text)
+        sys.exit(1)
 
     data = r.json()
-
     access_token = data["access_token"]
-    refresh_token = data["refresh_token"]
     user_id = data["user"]["id"]
 
-    # ✅ EXACT ca browserul
-    cookie_payload = {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-        "expires_in": 3600,
-        "user": data["user"],
-    }
+    session.headers.update({
+        "apikey": API_KEY,
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    })
 
-    encoded = base64.b64encode(
-        json.dumps(cookie_payload, separators=(",", ":")).encode()
-    ).decode()
+    print("Login successful.")
+    return user_id
 
-    session.cookies.set(
-        "sb-aibdnbgbsrqhefelcgtb-auth-token.0",
-        f"base64-{encoded}",
-        domain="sportinclujnapoca.ro",
-    )
-
-    print("Login OK")
-    return user_id, access_token
-
-# ==============================
-# SLOT LOGIC
-# ==============================
 
 def get_target_date():
-    return datetime.now().date() + timedelta(weeks=WEEKS_AHEAD)
+    today = datetime.now().date()
+    target_date = today + timedelta(weeks=WEEKS_AHEAD)
+    return target_date
 
 
 def get_slots(session, target_date):
@@ -117,7 +103,11 @@ def get_slots(session, target_date):
     }
 
     r = session.post(SLOTS_URL, json=payload)
-    r.raise_for_status()
+
+    if r.status_code != 200:
+        print("Failed to fetch slots:", r.text)
+        return []
+
     return r.json()
 
 
@@ -130,22 +120,19 @@ def find_target_slot(slots, target_date):
             and not slot["is_Blocked"]
             and slot["courtId"] is not None
         ):
+            print("Found available slot:", slot)
             return slot
 
     return None
 
 
-# ==============================
-# RESERVATION
-# ==============================
-
-def create_reservation(session, user_id, slot, access_token):
+def create_reservation(session, user_id, slot):
     start_dt = datetime.fromisoformat(slot["slot"])
     end_dt = start_dt + timedelta(hours=1)
 
     payload = {
         "sportsComplexId": SPORTS_COMPLEX_ID,
-        "courtId": None,
+        "courtId": slot["courtId"],
         "facilityId": FACILITY_ID,
         "startTime": start_dt.isoformat() + ".000Z",
         "endTime": end_dt.isoformat() + ".000Z",
@@ -155,20 +142,14 @@ def create_reservation(session, user_id, slot, access_token):
         "groupId": None
     }
 
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Origin": "https://sportinclujnapoca.ro",
-        "Referer": "https://sportinclujnapoca.ro/reservations/football?preferredSportComplex=gheorgheni-base",
-        "Content-Type": "application/json",
-        "Accept": "application/json, text/plain, */*",
-    }
+    r = session.post(RESERVATION_URL, json=payload)
 
-    r = session.post(RESERVATION_URL, json=payload, headers=headers)
-
-    print("Reservation status:", r.status_code)
-    print(r.text)
-
-    r.raise_for_status()
+    if r.status_code in (200, 201):
+        print("Reservation successful!")
+        print(r.json())
+    else:
+        print("Reservation failed:", r.text)
+        sys.exit(1)
 
 
 # ==============================
@@ -176,33 +157,33 @@ def create_reservation(session, user_id, slot, access_token):
 # ==============================
 
 if __name__ == "__main__":
+
     if not USERNAME or not PASSWORD:
         print("Missing credentials.")
         sys.exit(1)
 
-#    ensure_correct_time_window()
+   # ensure_correct_time_window()
 
     session = requests.Session()
 
-    user_id, access_token = login(session)
+    user_id = login(session)
 
     target_date = get_target_date()
+    print("Target booking date:", target_date)
 
-for attempt in range(MAX_RETRIES):
-    print(f"Attempt {attempt + 1}")
+    for attempt in range(MAX_RETRIES):
 
-    slots = get_slots(session, target_date)
-    slot = find_target_slot(slots, target_date)
+        print(f"Attempt {attempt + 1}/{MAX_RETRIES}")
 
-    if slot:
-        create_reservation(session, user_id, slot, access_token)
-        sys.exit(0)
+        slots = get_slots(session, target_date)
+        slot = find_target_slot(slots, target_date)
 
-    sleep(RETRY_DELAY)
+        if slot:
+            create_reservation(session, user_id, slot)
+            sys.exit(0)
 
-    print("No slot found.")
+        sleep(RETRY_DELAY)
+
+    print("No slot found after retries.")
+
     sys.exit(1)
-
-
-
-
