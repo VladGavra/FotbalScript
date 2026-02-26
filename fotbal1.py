@@ -25,7 +25,7 @@ PASSWORD = os.getenv("FOTBAL_PASSWORD")
 SPORTS_COMPLEX_ID = "211fdc7a-166e-43c8-9c5a-75094878b63a"
 FACILITY_ID = "742f59e9-0bd9-427a-8982-9d6fc1b62b1a"
 
-TARGET_HOUR = 21
+TARGET_HOUR = 12
 WEEKS_AHEAD = 2
 
 MAX_RETRIES = 60
@@ -187,3 +187,4 @@ if __name__ == "__main__":
     print("No slot found after retries.")
 
     sys.exit(1)
+
