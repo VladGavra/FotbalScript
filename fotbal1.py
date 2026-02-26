@@ -83,9 +83,16 @@ def login(session):
     refresh_token = data["refresh_token"]
     user_id = data["user"]["id"]
 
-    # ✅ cookie Supabase EXACT ca în browser
+        
+    # 🔥 IMPORTANT — headers pentru requesturi ulterioare
+    session.headers.update({
+        "apikey": API_KEY,
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    })
 
-cookie_payload = {
+    # 🔥 IMPORTANT — cookies Supabase
+    cookie_payload = {
     "access_token": access_token,
     "refresh_token": refresh_token,
     "token_type": "bearer",
@@ -102,26 +109,6 @@ session.cookies.set(
     f"base64-{encoded}",
     domain="sportinclujnapoca.ro",
 )
-        
-    # 🔥 IMPORTANT — headers pentru requesturi ulterioare
-    session.headers.update({
-        "apikey": API_KEY,
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json"
-    })
-
-    # 🔥 IMPORTANT — cookies Supabase
-    session.cookies.set(
-        "sb-aibdnbgbsrqhefelcgtb-auth-token",
-        access_token,
-        domain="sportinclujnapoca.ro",
-    )
-
-    session.cookies.set(
-        "sb-aibdnbgbsrqhefelcgtb-auth-token.1",
-        refresh_token,
-        domain="sportinclujnapoca.ro",
-    )
 
     print("Login successful.")
     return user_id
@@ -235,6 +222,7 @@ if __name__ == "__main__":
     print("No slot found after retries.")
 
     sys.exit(1)
+
 
 
 
