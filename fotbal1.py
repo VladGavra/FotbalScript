@@ -17,7 +17,6 @@ SUPABASE_URL = "https://aibdnbgbsrqhefelcgtb.supabase.co"
 LOGIN_URL = f"{SUPABASE_URL}/auth/v1/token?grant_type=password"
 SLOTS_URL = f"{SUPABASE_URL}/rest/v1/rpc/get_facility_time_slots"
 RESERVATION_URL = "https://sportinclujnapoca.ro/api/reservations"
-APP_TOKEN_URL = "https://sportinclujnapoca.ro/api/auth/session"
 
 API_KEY = "sb_publishable_jUOeK9gZS9vffHcOslwd9Q_NV8HvFTH"
 
@@ -102,36 +101,6 @@ def login(session):
     print("Login OK")
     return user_id, access_token
 
-
-# ==============================
-# GET APP TOKEN (FULL AUTO)
-# ==============================
-
-def get_app_token(session, access_token):
-    """
-    Forțează backendul să emită tokenul scurt.
-    """
-
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Origin": "https://sportinclujnapoca.ro",
-        "Referer": "https://sportinclujnapoca.ro/",
-        "Accept": "application/json, text/plain, */*",
-    }
-    
-    r = session.get(APP_TOKEN_URL, headers=headers)
-
-    if r.status_code != 200:
-        print("WARNING: could not fetch app token, using fallback")
-        print(r.text)
-        return None
-
-    data = r.json()
-
-    # ⚠️ posibilă structură
-    return data.get("accessToken") or data.get("token")
-
-
 # ==============================
 # SLOT LOGIC
 # ==============================
@@ -170,7 +139,7 @@ def find_target_slot(slots, target_date):
 # RESERVATION
 # ==============================
 
-def create_reservation(session, user_id, slot, app_token):
+def create_reservation(session, user_id, slot, access_token):
     start_dt = datetime.fromisoformat(slot["slot"])
     end_dt = start_dt + timedelta(hours=1)
 
@@ -187,11 +156,11 @@ def create_reservation(session, user_id, slot, app_token):
     }
 
     headers = {
-    "Authorization": f"Bearer {access_token}",  # JWT lung
-    "Origin": "https://sportinclujnapoca.ro",
-    "Referer": "https://sportinclujnapoca.ro/reservations/football?preferredSportComplex=gheorgheni-base",
-    "Content-Type": "application/json",
-    "Accept": "application/json, text/plain, */*",
+        "Authorization": f"Bearer {access_token}",
+        "Origin": "https://sportinclujnapoca.ro",
+        "Referer": "https://sportinclujnapoca.ro/reservations/football?preferredSportComplex=gheorgheni-base",
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/plain, */*",
     }
 
     r = session.post(RESERVATION_URL, json=payload, headers=headers)
@@ -217,29 +186,23 @@ if __name__ == "__main__":
 
     user_id, access_token = login(session)
 
-    app_token = get_app_token(session, access_token)
-    print("App token:", app_token)
-
-    if not app_token:
-        print("FAILED to obtain app token")
-        sys.exit(1)
-
     target_date = get_target_date()
 
-    for attempt in range(MAX_RETRIES):
-        print(f"Attempt {attempt + 1}")
+for attempt in range(MAX_RETRIES):
+    print(f"Attempt {attempt + 1}")
 
-        slots = get_slots(session, target_date)
-        slot = find_target_slot(slots, target_date)
+    slots = get_slots(session, target_date)
+    slot = find_target_slot(slots, target_date)
 
-        if slot:
-            create_reservation(session, user_id, slot, app_token)
-            sys.exit(0)
+    if slot:
+        create_reservation(session, user_id, slot, access_token)
+        sys.exit(0)
 
-        sleep(RETRY_DELAY)
+    sleep(RETRY_DELAY)
 
     print("No slot found.")
     sys.exit(1)
+
 
 
 
