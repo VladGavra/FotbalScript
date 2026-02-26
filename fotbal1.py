@@ -84,20 +84,14 @@ def login(session):
     user_id = data["user"]["id"]
 
         
-    # 🔥 IMPORTANT — headers pentru requesturi ulterioare
-    session.headers.update({
-        "apikey": API_KEY,
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json"
-    })
+     # ✅ cookie Supabase EXACT ca în browser
 
-    # 🔥 IMPORTANT — cookies Supabase
     cookie_payload = {
-    "access_token": access_token,
-    "refresh_token": refresh_token,
-    "token_type": "bearer",
-    "expires_in": data.get("expires_in", 3600),
-    "user": data["user"],
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "expires_in": data.get("expires_in", 3600),
+        "user": data["user"],
     }
 
     encoded = base64.b64encode(
@@ -107,6 +101,25 @@ def login(session):
     session.cookies.set(
         "sb-aibdnbgbsrqhefelcgtb-auth-token.0",
         f"base64-{encoded}",
+        domain="sportinclujnapoca.ro",
+    )   
+    # 🔥 IMPORTANT — headers pentru requesturi ulterioare
+    session.headers.update({
+        "apikey": API_KEY,
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    })
+
+    # 🔥 IMPORTANT — cookies Supabase
+    session.cookies.set(
+        "sb-aibdnbgbsrqhefelcgtb-auth-token",
+        access_token,
+        domain="sportinclujnapoca.ro",
+    )
+
+    session.cookies.set(
+        "sb-aibdnbgbsrqhefelcgtb-auth-token.1",
+        refresh_token,
         domain="sportinclujnapoca.ro",
     )
 
@@ -222,6 +235,7 @@ if __name__ == "__main__":
     print("No slot found after retries.")
 
     sys.exit(1)
+
 
 
 
