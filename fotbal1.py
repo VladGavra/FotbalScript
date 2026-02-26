@@ -22,7 +22,9 @@ API_KEY = "sb_publishable_jUOeK9gZS9vffHcOslwd9Q_NV8HvFTH"
 
 USERNAME = os.getenv("FOTBAL_USERNAME")
 PASSWORD = os.getenv("FOTBAL_PASSWORD")
+APP_TOKEN = os.getenv("FOTBAL_APP_TOKEN")  # App token din browser
 
+# Gheorgheni Base Football
 SPORTS_COMPLEX_ID = "211fdc7a-166e-43c8-9c5a-75094878b63a"
 FACILITY_ID = "742f59e9-0bd9-427a-8982-9d6fc1b62b1a"
 
@@ -30,20 +32,28 @@ TARGET_HOUR = 12
 WEEKS_AHEAD = 2
 
 MAX_RETRIES = 60
-RETRY_DELAY = 5
-
+RETRY_DELAY = 5  # secunde
 
 # ==============================
-# LOGIN
+# UTILS
 # ==============================
+
+def ensure_correct_time_window():
+    """Rulează doar Thursday între 20:00 și 21:30"""
+    now = datetime.now()
+    if now.weekday() != 3:
+        print("Not Thursday. Exiting.")
+        sys.exit(0)
+    start = time(20, 0)
+    end = time(21, 30)
+    if not (start <= now.time() <= end):
+        print("Outside allowed booking window (20:00–21:30). Exiting.")
+        sys.exit(0)
+    print("Inside booking window. Continuing...")
 
 def login(session):
-    payload = {
-        "email": USERNAME,
-        "password": PASSWORD,
-        "gotrue_meta_security": {}
-    }
-
+    """Login Supabase pentru a lua sloturile"""
+    payload = {"email": USERNAME, "password": PASSWORD, "gotrue_meta_security": {}}
     headers = {
         "apikey": API_KEY,
         "authorization": f"Bearer {API_KEY}",
@@ -51,20 +61,16 @@ def login(session):
         "x-client-info": "supabase-ssr/0.7.0 createBrowserClient",
         "x-supabase-api-version": "2024-01-01"
     }
-
     r = session.post(LOGIN_URL, json=payload, headers=headers)
-
     if r.status_code != 200:
         print("Login failed:", r.text)
         sys.exit(1)
-
     data = r.json()
-
     access_token = data["access_token"]
     refresh_token = data["refresh_token"]
     user_id = data["user"]["id"]
 
-    # ✅ cookie Supabase EXACT ca browserul
+    # Cookie Supabase exact ca în browser
     cookie_payload = {
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -72,82 +78,46 @@ def login(session):
         "expires_in": data.get("expires_in", 3600),
         "user": data["user"],
     }
-
-    encoded = base64.b64encode(
-        json.dumps(cookie_payload, separators=(",", ":")).encode()
-    ).decode()
-
+    encoded = base64.b64encode(json.dumps(cookie_payload, separators=(",", ":")).encode()).decode()
     session.cookies.set(
         "sb-aibdnbgbsrqhefelcgtb-auth-token.0",
         f"base64-{encoded}",
         domain="sportinclujnapoca.ro",
     )
 
-    # ✅ headers globale corecte
+    # Headers pentru requesturi ulterioare
     session.headers.update({
         "apikey": API_KEY,
         "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json",
-        "Origin": "https://sportinclujnapoca.ro",
-        "Referer": "https://sportinclujnapoca.ro/",
-        "Accept": "application/json, text/plain, */*",
-        "User-Agent": (
-            "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36"
-        ),
+        "Content-Type": "application/json"
     })
 
     print("Login successful.")
-    print("Cookies after login:", session.cookies.get_dict())
-
     return user_id
-
-
-# ==============================
-# HELPERS
-# ==============================
 
 def get_target_date():
     today = datetime.now().date()
-    return today + timedelta(weeks=WEEKS_AHEAD)
-
+    target_date = today + timedelta(weeks=WEEKS_AHEAD)
+    return target_date
 
 def get_slots(session, target_date):
-    payload = {
-        "complexID": SPORTS_COMPLEX_ID,
-        "facilityID": FACILITY_ID,
-        "selectedDate": target_date.isoformat()
-    }
-
+    payload = {"complexID": SPORTS_COMPLEX_ID, "facilityID": FACILITY_ID, "selectedDate": target_date.isoformat()}
     r = session.post(SLOTS_URL, json=payload)
-
     if r.status_code != 200:
         print("Failed to fetch slots:", r.text)
         return []
-
     return r.json()
-
 
 def find_target_slot(slots, target_date):
     target_string = f"{target_date.isoformat()}T{TARGET_HOUR:02d}:00:00"
-
     for slot in slots:
-        if (
-            slot["slot"] == target_string
-            and not slot["is_Blocked"]
-            and slot["courtId"] is not None
-        ):
+        if slot["slot"] == target_string and not slot["is_Blocked"] and slot["courtId"]:
             print("Found available slot:", slot)
             return slot
-
     return None
 
-
-# ==============================
-# RESERVATION
-# ==============================
-
-def create_reservation(session, user_id, slot):
+def create_reservation(slot, user_id):
+    """Rezervare folosind App Token real"""
     start_dt = datetime.fromisoformat(slot["slot"])
     end_dt = start_dt + timedelta(hours=1)
 
@@ -163,16 +133,23 @@ def create_reservation(session, user_id, slot):
         "groupId": None
     }
 
-    r = session.post(RESERVATION_URL, json=payload)
+    headers = {
+        "Authorization": f"Bearer {APP_TOKEN}",
+        "Origin": "https://sportinclujnapoca.ro",
+        "Referer": "https://sportinclujnapoca.ro/reservations/football?preferredSportComplex=gheorgheni-base",
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36",
+    }
 
+    r = requests.post(RESERVATION_URL, json=payload, headers=headers)
     print("Reservation status:", r.status_code)
     print(r.text)
-
     if r.status_code not in (200, 201):
-        sys.exit(1)
-
+        print("Reservation failed. Retrying...")
+        return False
     print("Reservation successful!")
-
+    return True
 
 # ==============================
 # MAIN
@@ -180,27 +157,24 @@ def create_reservation(session, user_id, slot):
 
 if __name__ == "__main__":
 
-    if not USERNAME or not PASSWORD:
-        print("Missing credentials.")
+    if not USERNAME or not PASSWORD or not APP_TOKEN:
+        print("Missing credentials or app token.")
         sys.exit(1)
 
+    # ensure_correct_time_window()  # opțional pentru trigger exact
+
     session = requests.Session()
-
     user_id = login(session)
-
     target_date = get_target_date()
     print("Target booking date:", target_date)
 
     for attempt in range(MAX_RETRIES):
         print(f"Attempt {attempt + 1}/{MAX_RETRIES}")
-
         slots = get_slots(session, target_date)
         slot = find_target_slot(slots, target_date)
-
         if slot:
-            create_reservation(session, user_id, slot)
-            sys.exit(0)
-
+            if create_reservation(slot, user_id):
+                sys.exit(0)
         sleep(RETRY_DELAY)
 
     print("No slot found after retries.")
