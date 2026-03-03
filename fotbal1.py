@@ -116,7 +116,8 @@ def find_target_slot(slots, target_date):
             return slot
     return None
 
-def create_reservation(slot, user_id):
+#def create_reservation(slot, user_id):
+def create_reservation(session, slot, user_id):
     """Rezervare folosind App Token real"""
     start_dt = datetime.fromisoformat(slot["slot"])
     end_dt = start_dt + timedelta(hours=1)
@@ -179,4 +180,5 @@ if __name__ == "__main__":
 
     print("No slot found after retries.")
     sys.exit(1)
+
 
