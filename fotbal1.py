@@ -22,7 +22,7 @@ API_KEY = "sb_publishable_jUOeK9gZS9vffHcOslwd9Q_NV8HvFTH"
 
 USERNAME = os.getenv("FOTBAL_USERNAME")
 PASSWORD = os.getenv("FOTBAL_PASSWORD")
-APP_TOKEN = os.getenv("FOTBAL_APP_TOKEN")  # App token din browser
+#APP_TOKEN = os.getenv("FOTBAL_APP_TOKEN")  # App token din browser
 
 # Gheorgheni Base Football
 SPORTS_COMPLEX_ID = "211fdc7a-166e-43c8-9c5a-75094878b63a"
@@ -134,15 +134,14 @@ def create_reservation(slot, user_id):
     }
 
     headers = {
-        "Authorization": f"Bearer {APP_TOKEN}",
         "Origin": "https://sportinclujnapoca.ro",
         "Referer": "https://sportinclujnapoca.ro/reservations/football?preferredSportComplex=gheorgheni-base",
         "Accept": "application/json, text/plain, */*",
         "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36",
     }
 
-    r = requests.post(RESERVATION_URL, json=payload, headers=headers)
+    #r = requests.post(RESERVATION_URL, json=payload, headers=headers)
+    r = session.post(RESERVATION_URL, json=payload, headers=headers)
     print("Reservation status:", r.status_code)
     print(r.text)
     if r.status_code not in (200, 201):
@@ -157,7 +156,7 @@ def create_reservation(slot, user_id):
 
 if __name__ == "__main__":
 
-    if not USERNAME or not PASSWORD or not APP_TOKEN:
+    if not USERNAME or not PASSWORD:
         print("Missing credentials or app token.")
         sys.exit(1)
 
@@ -173,9 +172,11 @@ if __name__ == "__main__":
         slots = get_slots(session, target_date)
         slot = find_target_slot(slots, target_date)
         if slot:
-            if create_reservation(slot, user_id):
+            #if create_reservation(slot, user_id):
+            if create_reservation(session, slot, user_id):
                 sys.exit(0)
         sleep(RETRY_DELAY)
 
     print("No slot found after retries.")
     sys.exit(1)
+
