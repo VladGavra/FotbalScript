@@ -94,20 +94,44 @@ def get_target_date():
 
 def get_slots(session, target_date):
 
-    url = (
-        f"{SLOTS_URL}"
-        f"?complexId={SPORTS_COMPLEX_ID}"
-        f"&facilityId={FACILITY_ID}"
-        f"&date={target_date.isoformat()}"
+    payload = {
+        "complexID": SPORTS_COMPLEX_ID,
+        "facilityID": FACILITY_ID,
+        "selectedDate": target_date.isoformat()
+    }
+
+    headers = {
+        "apikey": API_KEY,
+        "Authorization": session.headers.get("Authorization"),
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+
+        # 🔥 IMPORTANT (fără asta RPC uneori dă UNAUTHORIZED)
+        "Origin": "https://sportinclujnapoca.ro",
+        "Referer": "https://sportinclujnapoca.ro/reservations/football",
+
+        "x-client-info": "supabase-ssr/0.7.0 createBrowserClient",
+        "x-supabase-api-version": "2024-01-01"
+    }
+
+    r = session.post(
+        SLOTS_URL,
+        json=payload,
+        headers=headers,
+        timeout=30
     )
 
-    r = session.get(url)
+    print("\nGET SLOTS STATUS:", r.status_code)
 
     if r.status_code != 200:
-        print("Slot fetch failed:", r.text)
+        print(r.text)
         return []
 
-    return r.json()
+    try:
+        return r.json()
+    except Exception as e:
+        print("JSON error:", e)
+        return []
 
 
 # =========================================================
