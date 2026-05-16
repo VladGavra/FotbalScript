@@ -198,7 +198,8 @@ def find_slot(slots, target_date):
 
 def reserve(session, slot, user_id):
 
-    start = datetime.fromisoformat(slot["slot"])
+    # 🔥 FIX timezone mismatch (CET/CEST vs UTC)
+    start = datetime.fromisoformat(slot["slot"]) - timedelta(hours=2)
     end = start + timedelta(hours=1)
 
     payload = {
@@ -218,8 +219,9 @@ def reserve(session, slot, user_id):
     print("RESERVATION:", r.status_code, r.text)
 
     return r.status_code in (200, 201)
-
-
+    print("RAW SLOT:", slot["slot"])
+    print("SENDING START:", start)
+    print("SENDING END:", end)
 # =========================================================
 # MAIN LOOP
 # =========================================================
