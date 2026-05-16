@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import base64
 import requests
 
 from datetime import datetime, timedelta
@@ -14,12 +15,9 @@ load_dotenv()
 # =========================================================
 
 SUPABASE_URL = "https://aibdnbgbsrqhefelcgtb.supabase.co"
-
 LOGIN_URL = f"{SUPABASE_URL}/auth/v1/token?grant_type=password"
 
-# 🔥 CHANGED ENDPOINT (IMPORTANT)
 SLOTS_URL = "https://sportinclujnapoca.ro/api/calendar/facility-time-slots"
-
 RESERVATION_URL = "https://sportinclujnapoca.ro/api/reservations"
 
 API_KEY = "sb_publishable_jUOeK9gZS9vffHcOslwd9Q_NV8HvFTH"
@@ -32,10 +30,56 @@ FACILITY_ID = "742f59e9-0bd9-427a-8982-9d6fc1b62b1a"
 
 TARGET_HOUR = 13
 
-WEEKS_AHEAD = 2
-
-MAX_RETRIES = 25
+MAX_RETRIES = 60
 RETRY_DELAY = 5
+
+DEBUG = True
+
+
+# =========================================================
+# COOKIE REBUILD (IMPORTANT FIX)
+# =========================================================
+
+def set_auth_cookies(session, data):
+
+    access_token = data["access_token"]
+    refresh_token = data["refresh_token"]
+
+    payload = {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "expires_in": data.get("expires_in"),
+        "expires_at": data.get("expires_at"),
+        "user": data["user"]
+    }
+
+    encoded = base64.b64encode(
+        json.dumps(payload).encode()
+    ).decode()
+
+    cookie_name = "sb-aibdnbgbsrqhefelcgtb-auth-token"
+
+    session.cookies.set(
+        f"{cookie_name}.0",
+        f"base64-{encoded}",
+        domain="sportinclujnapoca.ro",
+        path="/"
+    )
+
+    session.cookies.set(
+        f"{cookie_name}.1",
+        "",
+        domain="sportinclujnapoca.ro",
+        path="/"
+    )
+
+    session.cookies.set(
+        "terenuriCookieConsent",
+        "true",
+        domain="sportinclujnapoca.ro",
+        path="/"
+    )
 
 
 # =========================================================
@@ -60,6 +104,8 @@ def login(session):
 
     r = session.post(LOGIN_URL, headers=headers, json=payload)
 
+    print("LOGIN:", r.status_code)
+
     if r.status_code != 200:
         print(r.text)
         sys.exit("Login failed")
@@ -73,58 +119,61 @@ def login(session):
         "apikey": API_KEY,
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json",
-        "x-client-info": "supabase-ssr",
+        "x-client-info": "supabase-ssr/0.7.0 createBrowserClient",
         "x-supabase-api-version": "2024-01-01"
     })
 
-    print("Login OK")
+    # 🔥 IMPORTANT FIX
+    set_auth_cookies(session, data)
+
     return user_id
 
 
 # =========================================================
-# TARGET DATE (+2 weeks)
+# TARGET DATE (2 WEEKS AHEAD)
 # =========================================================
 
 def get_target_date():
-    return datetime.now().date() + timedelta(weeks=WEEKS_AHEAD)
+    return datetime.now().date() + timedelta(weeks=2)
 
 
 # =========================================================
-# GET SLOTS (NEW QUERY PARAM STYLE)
+# GET SLOTS (BROWSER-ACCURATE)
 # =========================================================
 
 def get_slots(session, target_date):
 
-    url = (
-        "https://sportinclujnapoca.ro/api/calendar/facility-time-slots"
-        f"?complexId={SPORTS_COMPLEX_ID}"
-        f"&facilityId={FACILITY_ID}"
-        f"&date={target_date.isoformat()}"
-    )
-
-    headers = {
-        "Accept": "application/json, text/plain, */*",
-        "Authorization": session.headers.get("Authorization"),
-        "apikey": API_KEY,
-
-        # 🔥 critic pentru anti-UNAUTHORIZED
-        "Origin": "https://sportinclujnapoca.ro",
-        "Referer": "https://sportinclujnapoca.ro/reservations/football",
-
-        "User-Agent": "Mozilla/5.0",
-        "x-client-info": "supabase-ssr/0.7.0 createBrowserClient",
-        "x-supabase-api-version": "2024-01-01"
+    params = {
+        "complexId": SPORTS_COMPLEX_ID,
+        "facilityId": FACILITY_ID,
+        "date": target_date.isoformat()
     }
 
-    r = session.get(url, headers=headers, timeout=15)
+    headers = {
+        "Accept": "application/json",
+        "Referer": "https://sportinclujnapoca.ro/",
+        "Origin": "https://sportinclujnapoca.ro"
+    }
 
-    print("\nGET SLOTS:", r.status_code)
+    r = session.get(
+        SLOTS_URL,
+        params=params,
+        headers=headers,
+        timeout=30
+    )
+
+    print("\nSLOTS STATUS:", r.status_code)
 
     if r.status_code != 200:
         print(r.text)
         return []
 
-    return r.json()
+    try:
+        return r.json()
+    except Exception as e:
+        print("JSON error:", e)
+        return []
+
 
 # =========================================================
 # FIND SLOT
@@ -135,11 +184,8 @@ def find_slot(slots, target_date):
     target_prefix = f"{target_date.isoformat()} {TARGET_HOUR:02d}:00:00"
 
     for s in slots:
-
         if s.get("slot", "").startswith(target_prefix):
-
-            if not s.get("is_Blocked", True):
-
+            if not s.get("is_Blocked"):
                 print("\nFOUND SLOT:", s)
                 return s
 
@@ -193,18 +239,17 @@ if __name__ == "__main__":
 
     for i in range(MAX_RETRIES):
 
-        print(f"\nTRY {i+1}/{MAX_RETRIES}")
+        print(f"TRY {i+1}/{MAX_RETRIES}")
 
         slots = get_slots(session, target_date)
 
         slot = find_slot(slots, target_date)
 
         if slot:
-
             if reserve(session, slot, user_id):
                 print("SUCCESS")
                 sys.exit(0)
 
         sleep(RETRY_DELAY)
 
-    print("FAILED after retries")
+    print("FAILED")
