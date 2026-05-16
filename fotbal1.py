@@ -9,16 +9,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ==============================
+# =========================================================
 # CONFIG
-# ==============================
+# =========================================================
 
 SUPABASE_URL = "https://aibdnbgbsrqhefelcgtb.supabase.co"
 
 LOGIN_URL = f"{SUPABASE_URL}/auth/v1/token?grant_type=password"
-SLOTS_URL = f"{SUPABASE_URL}/rest/v1/rpc/get_facility_time_slots"
 
-RESERVATION_URL = "https://sportinclujnapoca.ro/api/reservations"
+SLOTS_URL = (
+    f"{SUPABASE_URL}/rest/v1/rpc/get_facility_time_slots"
+)
+
+RESERVATION_URL = (
+    "https://sportinclujnapoca.ro/api/reservations"
+)
 
 API_KEY = "sb_publishable_jUOeK9gZS9vffHcOslwd9Q_NV8HvFTH"
 
@@ -37,27 +42,37 @@ RETRY_DELAY = 5
 
 DEBUG = True
 
-# ==============================
-# UTILS
-# ==============================
+# =========================================================
+# DEBUG
+# =========================================================
 
 def debug_session(session, title="SESSION DEBUG"):
-    print("\n" + "=" * 60)
+
+    print("\n" + "=" * 70)
     print(title)
-    print("=" * 60)
+    print("=" * 70)
 
     print("\nHEADERS:")
     for k, v in session.headers.items():
-        print(f"{k}: {v}")
+
+        if "authorization" in k.lower():
+            print(f"{k}: {v[:60]}...")
+        else:
+            print(f"{k}: {v}")
 
     print("\nCOOKIES:")
     for c in session.cookies:
         print(f"{c.name} = {c.value}")
 
-    print("=" * 60 + "\n")
+    print("=" * 70 + "\n")
 
+
+# =========================================================
+# TIME WINDOW
+# =========================================================
 
 def ensure_correct_time_window():
+
     now = datetime.now()
 
     if now.weekday() != 3:
@@ -68,21 +83,17 @@ def ensure_correct_time_window():
     end = time(21, 30)
 
     if not (start <= now.time() <= end):
-        print("Outside allowed booking window (20:00–21:30). Exiting.")
+        print("Outside booking window.")
         sys.exit(0)
 
-    print("Inside booking window. Continuing...")
+    print("Inside booking window.")
 
 
-# ==============================
+# =========================================================
 # LOGIN
-# ==============================
+# =========================================================
 
 def login(session):
-    """
-    Login REAL Supabase.
-    Fără cookie-uri construite manual.
-    """
 
     payload = {
         "email": USERNAME,
@@ -92,10 +103,13 @@ def login(session):
 
     headers = {
         "Content-Type": "application/json;charset=UTF-8",
+
         "apikey": API_KEY,
+
+        # IMPORTANT:
+        # loginul initial foloseste API_KEY
         "Authorization": f"Bearer {API_KEY}",
 
-        # IMPORTANT
         "Origin": "https://sportinclujnapoca.ro",
         "Referer": "https://sportinclujnapoca.ro/",
 
@@ -109,7 +123,7 @@ def login(session):
         timeout=30
     )
 
-    print("LOGIN STATUS:", response.status_code)
+    print("\nLOGIN STATUS:", response.status_code)
 
     if response.status_code != 200:
         print(response.text)
@@ -119,19 +133,38 @@ def login(session):
 
     access_token = data["access_token"]
     refresh_token = data["refresh_token"]
+
     user_id = data["user"]["id"]
 
+    # =====================================================
     # IMPORTANT:
-    # folosim tokenul userului pentru requesturile viitoare
+    # de aici folosim USER ACCESS TOKEN
+    # =====================================================
+
     session.headers.update({
-        "Authorization": f"Bearer {access_token}",
+
         "apikey": API_KEY,
+
+        "Authorization": f"Bearer {access_token}",
+
+        "Content-Type": "application/json",
+
+        # IMPORTANT pentru Supabase RPC
+        "x-client-info": (
+            "supabase-ssr/0.7.0 createBrowserClient"
+        ),
+
+        "x-supabase-api-version": "2024-01-01"
     })
 
+    # =====================================================
     # DEBUG
+    # =====================================================
+
     if DEBUG:
 
         print("\n=== LOGIN RESPONSE ===")
+
         print(json.dumps({
             "user_id": user_id,
             "email": data["user"]["email"],
@@ -140,47 +173,66 @@ def login(session):
         }, indent=2))
 
         print("\n=== RESPONSE HEADERS ===")
+
         for k, v in response.headers.items():
             print(f"{k}: {v}")
 
         debug_session(session, "SESSION AFTER LOGIN")
 
-        # salvare completă pentru analiză
         auth_data = {
+
             "saved_at": datetime.utcnow().isoformat(),
 
             "access_token": access_token,
             "refresh_token": refresh_token,
+
             "expires_in": data.get("expires_in"),
             "expires_at": data.get("expires_at"),
+
             "token_type": data.get("token_type"),
 
             "user": data["user"],
 
-            "cookies": requests.utils.dict_from_cookiejar(session.cookies),
+            "cookies": requests.utils.dict_from_cookiejar(
+                session.cookies
+            ),
 
             "response_headers": dict(response.headers)
         }
 
-        with open("auth_debug.json", "w", encoding="utf-8") as f:
+        with open(
+            "auth_debug.json",
+            "w",
+            encoding="utf-8"
+        ) as f:
+
             json.dump(auth_data, f, indent=2)
 
-        print("\nAuth debug saved to auth_debug.json")
+        print("\nAuth debug saved.")
 
     print("\nLogin successful.")
 
     return user_id
 
 
-# ==============================
-# DATE / SLOT
-# ==============================
+# =========================================================
+# TARGET DATE
+# =========================================================
 
 def get_target_date():
+
     today = datetime.now().date()
-    target_date = today + timedelta(weeks=WEEKS_AHEAD)
+
+    target_date = today + timedelta(
+        weeks=WEEKS_AHEAD
+    )
+
     return target_date
 
+
+# =========================================================
+# GET SLOTS
+# =========================================================
 
 def get_slots(session, target_date):
 
@@ -190,33 +242,49 @@ def get_slots(session, target_date):
         "selectedDate": target_date.isoformat()
     }
 
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": session.headers["Authorization"],
-        "apikey": API_KEY,
-        "Origin": "https://sportinclujnapoca.ro",
-        "Referer": "https://sportinclujnapoca.ro/"
-    }
-
+    # IMPORTANT:
+    # fara headers custom aici
+    # folosim session.headers
     r = session.post(
         SLOTS_URL,
-        json=payload,
-        headers=headers
+        json=payload
     )
 
-    print("GET SLOTS STATUS:", r.status_code)
+    print("\nGET SLOTS STATUS:", r.status_code)
 
     if r.status_code != 200:
-        print("Failed to fetch slots:")
+
+        print("\nFAILED TO FETCH SLOTS")
         print(r.text)
+
+        print("\n=== REQUEST HEADERS ===")
+        print(r.request.headers)
+
+        print("\n=== RESPONSE HEADERS ===")
+        print(r.headers)
+
         return []
 
-    return r.json()
+    try:
+        return r.json()
 
+    except Exception as e:
+
+        print("JSON decode error:", e)
+
+        return []
+
+
+# =========================================================
+# FIND SLOT
+# =========================================================
 
 def find_target_slot(slots, target_date):
 
-    target_string = f"{target_date.isoformat()}T{TARGET_HOUR:02d}:00:00"
+    target_string = (
+        f"{target_date.isoformat()}T"
+        f"{TARGET_HOUR:02d}:00:00"
+    )
 
     for slot in slots:
 
@@ -225,33 +293,48 @@ def find_target_slot(slots, target_date):
             and not slot["is_Blocked"]
             and slot["courtId"]
         ):
-            print("\nFOUND SLOT:")
+
+            print("\nFOUND AVAILABLE SLOT")
+
             print(json.dumps(slot, indent=2))
+
             return slot
 
     return None
 
 
-# ==============================
-# RESERVATION
-# ==============================
+# =========================================================
+# CREATE RESERVATION
+# =========================================================
 
 def create_reservation(session, slot, user_id):
 
-    start_dt = datetime.fromisoformat(slot["slot"])
+    start_dt = datetime.fromisoformat(
+        slot["slot"]
+    )
+
     end_dt = start_dt + timedelta(hours=1)
 
     payload = {
+
         "sportsComplexId": SPORTS_COMPLEX_ID,
+
         "courtId": slot["courtId"],
+
         "facilityId": FACILITY_ID,
 
-        "startTime": start_dt.isoformat() + ".000Z",
-        "endTime": end_dt.isoformat() + ".000Z",
+        "startTime": (
+            start_dt.isoformat() + ".000Z"
+        ),
+
+        "endTime": (
+            end_dt.isoformat() + ".000Z"
+        ),
 
         "type": "team",
 
         "createdBy": user_id,
+
         "ownerId": user_id,
 
         "groupId": None
@@ -259,37 +342,59 @@ def create_reservation(session, slot, user_id):
 
     headers = {
 
-        "Accept": "application/json, text/plain, */*",
+        "Accept": (
+            "application/json, text/plain, */*"
+        ),
+
         "Content-Type": "application/json",
 
-        "Origin": "https://sportinclujnapoca.ro",
+        "Origin": (
+            "https://sportinclujnapoca.ro"
+        ),
 
         "Referer": (
             "https://sportinclujnapoca.ro/"
             "reservations/football"
-            "?preferredSportComplex=gheorgheni-base"
+            "?preferredSportComplex="
+            "gheorgheni-base"
         ),
 
         # IMPORTANT
-        "Authorization": session.headers["Authorization"],
+        "Authorization": (
+            session.headers["Authorization"]
+        ),
+
         "apikey": API_KEY,
+
+        # IMPORTANT
+        "x-client-info": (
+            "supabase-ssr/0.7.0 createBrowserClient"
+        ),
     }
 
+    # =====================================================
     # DEBUG
+    # =====================================================
+
     if DEBUG:
 
         print("\n=== RESERVATION PAYLOAD ===")
+
         print(json.dumps(payload, indent=2))
 
         print("\n=== RESERVATION HEADERS ===")
+
         for k, v in headers.items():
 
-            if "Authorization" in k:
-                print(f"{k}: {v[:50]}...")
+            if "authorization" in k.lower():
+                print(f"{k}: {v[:60]}...")
             else:
                 print(f"{k}: {v}")
 
-        debug_session(session, "SESSION BEFORE RESERVATION")
+        debug_session(
+            session,
+            "SESSION BEFORE RESERVATION"
+        )
 
     r = session.post(
         RESERVATION_URL,
@@ -299,27 +404,57 @@ def create_reservation(session, slot, user_id):
 
     print("\nRESERVATION STATUS:", r.status_code)
 
-    print("\n=== RESERVATION RESPONSE ===")
+    print("\n=== RESPONSE BODY ===")
     print(r.text)
 
-    # DEBUG COMPLET
+    print("\n=== RESPONSE HEADERS ===")
+    print(r.headers)
+
+    # =====================================================
+    # SAVE DEBUG
+    # =====================================================
+
     if DEBUG:
 
         try:
-            with open("reservation_response.json", "w", encoding="utf-8") as f:
+
+            with open(
+                "reservation_response.json",
+                "w",
+                encoding="utf-8"
+            ) as f:
+
                 json.dump({
+
                     "status_code": r.status_code,
-                    "headers": dict(r.headers),
+
+                    "request_headers": dict(
+                        r.request.headers
+                    ),
+
+                    "response_headers": dict(
+                        r.headers
+                    ),
+
                     "body": r.text
+
                 }, f, indent=2)
 
-            print("\nReservation response saved.")
+            print(
+                "\nReservation debug saved."
+            )
+
         except Exception as e:
-            print("Failed saving reservation response:", e)
+
+            print(
+                "Failed saving reservation debug:",
+                e
+            )
 
     if r.status_code not in (200, 201):
 
         print("\nReservation failed.")
+
         return False
 
     print("\nReservation successful!")
@@ -327,14 +462,16 @@ def create_reservation(session, slot, user_id):
     return True
 
 
-# ==============================
+# =========================================================
 # MAIN
-# ==============================
+# =========================================================
 
 if __name__ == "__main__":
 
     if not USERNAME or not PASSWORD:
+
         print("Missing credentials.")
+
         sys.exit(1)
 
     # ensure_correct_time_window()
@@ -345,19 +482,37 @@ if __name__ == "__main__":
 
     target_date = get_target_date()
 
-    print("\nTarget booking date:", target_date)
+    print(
+        "\nTARGET BOOKING DATE:",
+        target_date
+    )
 
     for attempt in range(MAX_RETRIES):
 
-        print(f"\nAttempt {attempt + 1}/{MAX_RETRIES}")
+        print(
+            f"\nATTEMPT "
+            f"{attempt + 1}/{MAX_RETRIES}"
+        )
 
-        slots = get_slots(session, target_date)
+        slots = get_slots(
+            session,
+            target_date
+        )
 
-        slot = find_target_slot(slots, target_date)
+        slot = find_target_slot(
+            slots,
+            target_date
+        )
 
         if slot:
 
-            if create_reservation(session, slot, user_id):
+            success = create_reservation(
+                session,
+                slot,
+                user_id
+            )
+
+            if success:
                 sys.exit(0)
 
         sleep(RETRY_DELAY)
