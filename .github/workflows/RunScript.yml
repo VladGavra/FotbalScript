@@ -2,7 +2,7 @@ name: Weekly Script
 
 on:
   schedule:
-    - cron: "15 17 * * 4" # Every Thursday at 19:15 EET (18:25 UTC)
+    - cron: "15 17 * * 4" # Every Thursday at 20:15 EET (17:15 UTC)
   workflow_dispatch: # Allows manual triggering
     inputs:
       CUSTOM_TIME_SLOT:
