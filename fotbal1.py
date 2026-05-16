@@ -96,26 +96,35 @@ def get_target_date():
 def get_slots(session, target_date):
 
     url = (
-        f"{SLOTS_URL}"
+        "https://sportinclujnapoca.ro/api/calendar/facility-time-slots"
         f"?complexId={SPORTS_COMPLEX_ID}"
         f"&facilityId={FACILITY_ID}"
         f"&date={target_date.isoformat()}"
     )
 
-    r = session.get(url)
+    headers = {
+        "Accept": "application/json, text/plain, */*",
+        "Authorization": session.headers.get("Authorization"),
+        "apikey": API_KEY,
 
-    print("\nGET SLOTS STATUS:", r.status_code)
+        # 🔥 critic pentru anti-UNAUTHORIZED
+        "Origin": "https://sportinclujnapoca.ro",
+        "Referer": "https://sportinclujnapoca.ro/reservations/football",
+
+        "User-Agent": "Mozilla/5.0",
+        "x-client-info": "supabase-ssr/0.7.0 createBrowserClient",
+        "x-supabase-api-version": "2024-01-01"
+    }
+
+    r = session.get(url, headers=headers, timeout=15)
+
+    print("\nGET SLOTS:", r.status_code)
 
     if r.status_code != 200:
         print(r.text)
         return []
 
-    try:
-        return r.json()
-    except Exception as e:
-        print("JSON error:", e)
-        return []
-
+    return r.json()
 
 # =========================================================
 # FIND SLOT
