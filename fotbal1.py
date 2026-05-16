@@ -17,6 +17,7 @@ SUPABASE_URL = "https://aibdnbgbsrqhefelcgtb.supabase.co"
 
 LOGIN_URL = f"{SUPABASE_URL}/auth/v1/token?grant_type=password"
 
+# 🔥 CHANGED ENDPOINT (IMPORTANT)
 SLOTS_URL = "https://sportinclujnapoca.ro/api/calendar/facility-time-slots"
 
 RESERVATION_URL = "https://sportinclujnapoca.ro/api/reservations"
@@ -31,14 +32,14 @@ FACILITY_ID = "742f59e9-0bd9-427a-8982-9d6fc1b62b1a"
 
 TARGET_HOUR = 13
 
-MAX_RETRIES = 50
-RETRY_DELAY = 5
+WEEKS_AHEAD = 2
 
-DEBUG = True
+MAX_RETRIES = 1000
+RETRY_DELAY = 5
 
 
 # =========================================================
-# LOGIN (UNCHANGED)
+# LOGIN
 # =========================================================
 
 def login(session):
@@ -81,45 +82,27 @@ def login(session):
 
 
 # =========================================================
-# TARGET DATE (2 weeks ahead)
+# TARGET DATE (+2 weeks)
 # =========================================================
 
 def get_target_date():
-    return (datetime.now().date() + timedelta(weeks=2))
+    return datetime.now().date() + timedelta(weeks=WEEKS_AHEAD)
 
 
 # =========================================================
-# GET SLOTS (REAL ENDPOINT)
+# GET SLOTS (NEW QUERY PARAM STYLE)
 # =========================================================
 
 def get_slots(session, target_date):
 
-    payload = {
-        "complexID": SPORTS_COMPLEX_ID,
-        "facilityID": FACILITY_ID,
-        "selectedDate": target_date.isoformat()
-    }
-
-    headers = {
-        "apikey": API_KEY,
-        "Authorization": session.headers.get("Authorization"),
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-
-        # 🔥 IMPORTANT (fără asta RPC uneori dă UNAUTHORIZED)
-        "Origin": "https://sportinclujnapoca.ro",
-        "Referer": "https://sportinclujnapoca.ro/reservations/football",
-
-        "x-client-info": "supabase-ssr/0.7.0 createBrowserClient",
-        "x-supabase-api-version": "2024-01-01"
-    }
-
-    r = session.post(
-        SLOTS_URL,
-        json=payload,
-        headers=headers,
-        timeout=30
+    url = (
+        f"{SLOTS_URL}"
+        f"?complexId={SPORTS_COMPLEX_ID}"
+        f"&facilityId={FACILITY_ID}"
+        f"&date={target_date.isoformat()}"
     )
+
+    r = session.get(url)
 
     print("\nGET SLOTS STATUS:", r.status_code)
 
@@ -135,7 +118,7 @@ def get_slots(session, target_date):
 
 
 # =========================================================
-# FIND SLOT (ROBUST)
+# FIND SLOT
 # =========================================================
 
 def find_slot(slots, target_date):
@@ -144,9 +127,9 @@ def find_slot(slots, target_date):
 
     for s in slots:
 
-        if s["slot"].startswith(target_prefix):
+        if s.get("slot", "").startswith(target_prefix):
 
-            if not s["is_Blocked"]:
+            if not s.get("is_Blocked", True):
 
                 print("\nFOUND SLOT:", s)
                 return s
@@ -165,7 +148,7 @@ def reserve(session, slot, user_id):
 
     payload = {
         "sportsComplexId": SPORTS_COMPLEX_ID,
-        "courtId": None,  # backend decide
+        "courtId": None,
         "facilityId": FACILITY_ID,
         "startTime": start.isoformat() + ".000Z",
         "endTime": end.isoformat() + ".000Z",
@@ -179,14 +162,11 @@ def reserve(session, slot, user_id):
 
     print("RESERVATION:", r.status_code, r.text)
 
-    if r.status_code in (200, 201):
-        return True
-
-    return False
+    return r.status_code in (200, 201)
 
 
 # =========================================================
-# MAIN LOOP (FAST POLLING)
+# MAIN LOOP
 # =========================================================
 
 if __name__ == "__main__":
@@ -204,7 +184,7 @@ if __name__ == "__main__":
 
     for i in range(MAX_RETRIES):
 
-        print(f"TRY {i+1}/{MAX_RETRIES}")
+        print(f"\nTRY {i+1}/{MAX_RETRIES}")
 
         slots = get_slots(session, target_date)
 
@@ -212,9 +192,7 @@ if __name__ == "__main__":
 
         if slot:
 
-            ok = reserve(session, slot, user_id)
-
-            if ok:
+            if reserve(session, slot, user_id):
                 print("SUCCESS")
                 sys.exit(0)
 
