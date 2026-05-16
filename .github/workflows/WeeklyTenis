@@ -2,7 +2,7 @@ name: Weekly Tenis
 
 on:
   schedule:
-    - cron: "9 17 * * 6" # Every Thursday at 19:15 EET (18:25 UTC)
+    - cron: "10 7 * * 6" # Every Saturday at 10:10 EET (7:10 UTC)
   workflow_dispatch: # Allows manual triggering
     inputs:
       CUSTOM_TIME_SLOT:
