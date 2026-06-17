@@ -199,7 +199,7 @@ def find_slot(slots, target_date):
 def reserve(session, slot, user_id):
 
     # 🔥 FIX timezone mismatch (CET/CEST vs UTC)
-    start = datetime.fromisoformat(slot["slot"]) - timedelta(hours=2)
+    start = datetime.fromisoformat(slot["slot"]) - timedelta(hours=3)
     end = start + timedelta(hours=1)
 
     payload = {
